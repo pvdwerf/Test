@@ -1,0 +1,5 @@
+p-pdf001a	Standard A2 v2
+p-wfy001a	Standard D8 v3
+
+p-sql001a	Standard D4s v3
+p-sql001b 	Standard D2s v3

@@ -1,0 +1,841 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "domainNameLabel": {
+            "type": "string"
+        },
+        "applicationGatewayVNET": {
+            "type": "string"
+        },
+        "EnvironmentShort": {
+            "type": "string"
+        },
+        "EnvironmentLong": {
+            "type": "string"
+        },
+        "SchoolName": {
+            "type": "string"
+        },
+        "SchoolNumber": {
+            "type": "string"
+        },
+        "CertificatePassword": {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "applicationGatewayName": "[concat(parameters('EnvironmentShort'),'-agw',parameters('SchoolNumber'),'a')]",
+        "publicIpAddressName": "[concat(parameters('EnvironmentShort'),'-agw-pip',parameters('SchoolNumber'),'a')]",
+        "vNetID": "[resourceId('Microsoft.Network/virtualNetworks', parameters('applicationGatewayVNET'))]",
+        "publicIPRef": "[resourceId('Microsoft.Network/publicIPAddresses/', variables('publicIpAddressName'))]",
+        "subnetRef": "[concat(variables('vnetId'), '/subnets/', variables('subnetName'))]",
+        "applicationGatewayID": "[resourceId('Microsoft.Network/applicationGateways', variables('applicationGatewayName'))]",
+        "tagEnvironment": "[parameters('EnvironmentLong')]",
+        "tagSchoolName": "[parameters('SchoolName')]",
+        "tagSchoolNumber": "[parameters('SchoolNumber')]",
+        "HostNameRoot": "[concat(parameters('SchoolName'),'.educus.nl')]",
+        "HostNameRest": "[concat(parameters('SchoolName'),'-rest.educus.nl')]",
+        "HostNameStudent": "[concat(parameters('SchoolName'),'-student.educus.nl')]",
+        "HostNameOuder": "[concat(parameters('SchoolName'),'-ouder.educus.nl')]",
+        "HostNameBedrijf": "[concat(variables('TagSchoolName'),'-bedrijf.educus.nl')]",
+        "HostNameDocent": "[concat(variables('TagSchoolName'),'-docent.educus.nl')]",
+        "Tier": "Standard",
+        "sku": "Basic",
+        "skuSize": "Standard_Medium",
+        "location": "westeurope",
+        "capacity": "2",
+        "subnetName": "ApplicationGatewaySubnet",
+        "enableHttp2": "false",
+        "zones": [],
+        "allocationMethod": "Dynamic",
+        "publicIpZones": [],
+        "idleTimeoutInMinutes": 4,
+        "domainNameLabel": "[parameters('domainNameLabel')]",
+        "CertificatePassword": "[parameters('CertificatePassword')]"
+    },
+    "resources": [
+        {
+            "name": "[variables('applicationGatewayName')]",
+            "type": "Microsoft.Network/applicationGateways",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "tags": {
+                "Application": "EduArte",
+                "Environment": "[variables('tagEnvironment')]",
+                "School": "[variables('tagSchoolName')]",
+                "Street": "[variables('tagSchoolNumber')]"
+            },
+            "zones": "[variables('zones')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIpAddressName'))]"
+            ],
+            "properties": {
+                "sku": {
+                    "name": "[variables('skuSize')]",
+                    "tier": "[variables('tier')]",
+                    "capacity": "[variables('capacity')]"
+                },
+                "gatewayIPConfigurations": [
+                    {
+                        "name": "appGatewayIpConfig",
+                        "properties": {
+                            "subnet": {
+                                "id": "[variables('subnetRef')]"
+                            }
+                        }
+                    }
+                ],
+                "frontendIPConfigurations": [
+                    {
+                        "name": "appGatewayFrontendIP",
+                        "properties": {
+                            "PublicIPAddress": {
+                                "id": "[variables('publicIPRef')]"
+                            }
+                        }
+                    }
+                ],
+                "frontendPorts": [
+                    {
+                        "name": "p80",
+                        "properties": {
+                            "Port": 80
+                        }
+                    },
+                    {
+                        "name": "p443",
+                        "properties": {
+                            "Port": 443
+                        }
+                    },
+                    {
+                        "name": "p8080",
+                        "properties": {
+                            "Port": 8080
+                        }
+                    },
+                    {
+                        "name": "p8081",
+                        "properties": {
+                            "Port": 8081
+                        }
+                    },
+                    {
+                        "name": "p8082",
+                        "properties": {
+                            "Port": 8082
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "appGatewayBackendPool",
+                        "properties": {
+                            "BackendAddresses": []
+                        }
+                    }
+                ],
+                "backendHttpSettingsCollection": [
+                    {
+                        "name": "appGatewayBackendHttpSettings8080",
+                        "properties": {
+                            "Port": 8080,
+                            "Protocol": "Http",
+                            "CookieBasedAffinity": "Disabled"
+                        }
+                    },
+                    {
+                        "name": "appGatewayBackendHttpSettings8081",
+                        "properties": {
+                            "Port": 8081,
+                            "Protocol": "Http",
+                            "CookieBasedAffinity": "Disabled"
+                        }
+                    },
+                    {
+                        "name": "appGatewayBackendHttpSettings8082",
+                        "properties": {
+                            "Port": 8082,
+                            "Protocol": "Http",
+                            "CookieBasedAffinity": "Disabled"
+                        }
+                    }
+                ],
+                "httpListeners": [
+                    {
+                        "name": "EducusRoot_HTTPS_P443",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p443')]"
+                            },
+                            "Protocol": "Https",
+                            "hostName": "[variables('HostNameRoot')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusRest_HTTPS_P443",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p443')]"
+                            },
+                            "Protocol": "Https",
+                            "hostName": "[variables('HostNameRest')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusStudent_HTTPS_P443",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p443')]"
+                            },
+                            "Protocol": "Https",
+                            "hostName": "[variables('HostNameStudent')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusOuder_HTTPS_P443",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p443')]"
+                            },
+                            "Protocol": "Https",
+                            "hostName": "[variables('HostNameOuder')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusBedrijf_HTTPS_P443",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p443')]"
+                            },
+                            "Protocol": "Https",
+                            "hostName": "[variables('HostNameBedrijf')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusDocent_HTTPS_P443",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p443')]"
+                            },
+                            "Protocol": "Https",
+                            "hostName": "[variables('HostNameDocent')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusRest_HTTP_P80",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p80')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameRest')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusStudent_HTTP_P80",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p80')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameStudent')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusOuder_HTTP_P80",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p80')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameOuder')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusBedrijf_HTTP_P80",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p80')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameBedrijf')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusDocent_HTTP_P80",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/p80')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameDocent')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusStudent_HTTP_P8081",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/P8081')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameStudent')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusOuder_HTTP_P8081",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/P8081')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameOuder')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusBedrijf_HTTP_P8081",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/P8081')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameBedrijf')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusDocent_HTTP_P8081",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/P8081')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameDocent')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusRest_HTTP_P8082",
+                        "properties": {
+                            "FrontendIPConfiguration": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+                            },
+                            "FrontendPort": {
+                                "Id": "[concat(variables('applicationGatewayID'), '/frontendPorts/P8082')]"
+                            },
+                            "Protocol": "Http",
+                            "hostName": "[variables('HostNameRest')]",
+                            "SslCertificate": {
+                                "ID": "[concat(variables('applicationGatewayID'),'/sslCertificates/Educus')]"
+                            }
+                        }
+                    }
+                ],
+                "requestRoutingRules": [
+                    {
+                        "Name": "EducusRoot_HTTPS",
+                        "properties": {
+                            "RuleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusRoot_HTTPS_P443')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGatewayBackendHttpSettings8080')]"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "EducusRest_HTTPS",
+                        "properties": {
+                            "RuleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusRest_HTTPS_P443')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGatewayBackendHttpSettings8082')]"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "EducusStudent_HTTPS",
+                        "properties": {
+                            "RuleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusStudent_HTTPS_P443')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGatewayBackendHttpSettings8081')]"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "EducusOuder_HTTPS",
+                        "properties": {
+                            "RuleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusOuder_HTTPS_P443')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGatewayBackendHttpSettings8081')]"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "EducusBedrijf_HTTPS",
+                        "properties": {
+                            "RuleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusBedrijf_HTTPS_P443')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGatewayBackendHttpSettings8081')]"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "EducusDocent_HTTPS",
+                        "properties": {
+                            "RuleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusDocent_HTTPS_P443')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendAddressPools/appGatewayBackendPool')]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(variables('applicationGatewayID'), '/backendHttpSettingsCollection/appGatewayBackendHttpSettings8081')]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "EducusRest_Redirect_P80_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusRest_HTTP_P80')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusRest_Redirect_P80_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusRest_Redirect_P8082_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusRest_HTTP_P8082')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusRest_Redirect_P8082_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusStudent_Redirect_P80_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusStudent_HTTP_P80')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusStudent_Redirect_P80_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusStudent_Redirect_P8081_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusStudent_HTTP_P8081')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusStudent_Redirect_P8081_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusOuder_Redirect_P80_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusOuder_HTTP_P80')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusOuder_Redirect_P80_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusOuder_Redirect_P8081_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusOuder_HTTP_P8081')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusOuder_Redirect_P8081_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusBedrijf_Redirect_P80_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusBedrijf_HTTP_P80')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusBedrijf_Redirect_P80_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusBedrijf_Redirect_P8081_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusBedrijf_HTTP_P8081')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusBedrijf_Redirect_P8081_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusDocent_Redirect_P80_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusDocent_HTTP_P80')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusDocent_Redirect_P80_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    },
+                    {
+                        "name": "EducusDocent_Redirect_P8081_P443",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(variables('applicationGatewayID'), '/httpListeners/EducusDocent_HTTP_P8081')]"
+                            },
+                            "redirectConfiguration": {
+                                "id": "[concat(variables('applicationGatewayID'), '/redirectConfigurations/EducusDocent_Redirect_P8081_P443')]"
+                            }
+                        },
+                        "type": "Microsoft.Network/applicationGateways/requestRoutingRules"
+                    }
+                ],
+                "redirectConfigurations": [
+                    {
+                        "name": "EducusRest_Redirect_P80_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusRest_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusRest_Redirect_P80_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusRest_Redirect_P8082_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusRest_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusRest_Redirect_P8082_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusStudent_Redirect_P80_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusStudent_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusStudent_Redirect_P80_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusStudent_Redirect_P8081_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusStudent_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusStudent_Redirect_P8081_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusOuder_Redirect_P80_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusOuder_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusOuder_Redirect_P80_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusOuder_Redirect_P8081_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusOuder_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusOuder_Redirect_P8081_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusBedrijf_Redirect_P80_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusBedrijf_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusBedrijf_Redirect_P80_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusBedrijf_Redirect_P8081_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusBedrijf_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusBedrijf_Redirect_P8081_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusDocent_Redirect_P80_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusDocent_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusDocent_Redirect_P80_P443')]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "EducusDocent_Redirect_P8081_P443",
+                        "properties": {
+                            "redirectType": "Permanent",
+                            "targetListener": {
+                                "id": "[concat(variables('applicationGatewayID'),'/httpListeners/EducusDocent_HTTPS_P443')]"
+                            },
+                            "includePath": true,
+                            "includeQueryString": true,
+                            "requestRoutingRules": [
+                                {
+                                    "id": "[concat(variables('applicationGatewayID'),'/requestRoutingRules/EducusDocent_Redirect_P8081_P443')]"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "enableHttp2": "[variables('enableHttp2')]",
+                "sslCertificates": [
+                    {
+                        "properties": {
+                            "data": "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",
+                            "password": "[variables('CertificatePassword')]"
+                        },
+                        "name": "Educus"
+                    }
+                ],
+                "sslPolicy": {
+                    "policyType": "Predefined",
+                    "policyName": "AppGwSslPolicy20170401S"
+                }
+            }
+        },
+        {
+            "apiVersion": "2018-08-01",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('publicIpAddressName')]",
+            "location": "[variables('location')]",
+            "sku": {
+                "name": "[variables('sku')]"
+            },
+            "zones": "[variables('publicIpZones')]",
+            "properties": {
+                "publicIPAllocationMethod": "[variables('allocationMethod')]",
+                "idleTimeoutInMinutes": "[variables('idleTimeoutInMinutes')]",
+                "dnsSettings": {
+                    "domainNameLabel": "[variables('domainNameLabel')]"
+                }
+            }
+        }
+    ]
+}
